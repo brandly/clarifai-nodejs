@@ -34,6 +34,11 @@ Note that if you put your Client ID and Client Secret in environment variables C
 Clarifai.initAPI(process.env.CLIENT_ID, process.env.CLIENT_SECRET);
 ```
 
+If you don't have module stdio, install it.
+```
+$ npm install stdio
+```
+
 Now you're ready to make calls to the Clarifai API.
 
 At a command prompt in the folder where you downloaded the Clarifai node.js API client, run the supplied sample program. NOTE: the sample program assumes you have set the environment variables CLIENT_ID and CLIENT_SECRET. Review the source for examples of how to use the API client.
@@ -42,6 +47,16 @@ At a command prompt in the folder where you downloaded the Clarifai node.js API 
 $ node clarifai_sample.js
 ```
 
+Invoke the sample with --help to see a couple of convenience features.
+
+```
+$ node clarifai_sample.js --help
+USAGE: node clarifai_sample.js [OPTION1] [OPTION2]... arg1 arg2...
+The following options are supported:
+  --print-results   print results
+  --print-http      print HTTP requests and responses
+  -v, --verbose     verbose output
+```
 Documentation
 ================
 
