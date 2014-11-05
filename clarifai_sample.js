@@ -12,7 +12,6 @@ var opts = stdio.getopt( {
 	'verbose' : { key : 'v', description: 'verbose output'}
 });
 var verbose = opts["verbose"];
-
 Clarifai.setVerbose( verbose );
 if( opts["print-http"] ) {
 	Clarifai.setLogHttp( true ) ;
@@ -20,13 +19,35 @@ if( opts["print-http"] ) {
 
 if(verbose) console.log("using CLIENT_ID="+Clarifai._clientId+", CLIENT_SECRET="+Clarifai._clientSecret);
 
+// Setting a throttle handler lets you know when the service is unavailable because of throttling. It will let
+// you know when the service is available again. Note that setting the throttle handler causes a timeout handler to
+// be set that will prevent your process from existing normally until the timeout expires. If you want to exit fast
+// on being throttled, don't set a handler and look for error results instead.
+// Clarifai.setThrottleHandler( function( bThrottled, waitSeconds ) { 
+// 	console.log( bThrottled ? ["throttled. service available again in",waitSeconds,"seconds"].join(' ') : "not throttled");
+// });
+
 // exampleTagSingleURL() shows how to request the tags for a single image URL
 function exampleTagSingleURL() {var testImageURL = 'http://www.clarifai.com/img/metro-north.jpg';
 	var ourId = "train station 1"; // this is any string that identifies the image to your system
 
-	Clarifai.tagURL( testImageURL , null, function( res, localId ) {
+	Clarifai.tagURL( testImageURL , ourId, function( res ) {
 		if( opts["print-results"] ) {
-			console.log( res, localId );
+			switch( res["status_code"]) {
+				case "OK" :
+					// the request completed successfully
+					console.log( res, 'local_id =', res.results[0].local_id );
+					break;
+				case "ALL_ERROR":
+					// this is the error return from the first
+					// request that triggered the service to throttle	
+					break;
+				case "ERROR_THROTTLED":
+					// this is the error returned from the API client
+					// you make a request when the state is already
+					// throttled
+					break;
+			}
 		};
 	} );
 }
@@ -39,9 +60,26 @@ function exampleTagMultipleURL() {
 	var ourIds =  [ "train station 1", 
 	                        "img002032" ]; // this is any string that identifies the image to your system
 
-	Clarifai.tagURL( testImageURLs , null, function( res, localId ) {
+	Clarifai.tagURL( testImageURLs , ourIds, function( res ) {
 		if( opts["print-results"] ) {
-			console.log( res , localId );
+			console.log( res  );
+			switch( res["status_code"]) {
+				case "OK" :
+					// the request completed successfully
+					for( i = 0; i < res.results.length; i++ ) {
+						console.log( 'docid='+res.results[i].docid+' local_id='+res.results[i].local_id )
+					}
+					break;
+				case "ALL_ERROR":
+					// this is the error return from the first
+					// request that triggered the service to throttle	
+					break;
+				case "ERROR_THROTTLED":
+					// this is the error returned from the API client
+					// you make a request when the state is already
+					// throttled
+					break;
+			}
 		};
 	} );
 }

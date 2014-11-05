@@ -53,9 +53,9 @@ Invoke the sample with --help to see a couple of convenience features.
 $ node clarifai_sample.js --help
 USAGE: node clarifai_sample.js [OPTION1] [OPTION2]... arg1 arg2...
 The following options are supported:
-  --print-results   print results
-  --print-http      print HTTP requests and responses
-  -v, --verbose     verbose output
+  --print-results 	print results
+  --print-http    	print HTTP requests and responses
+  -v, --verbose   	verbose output
 ```
 Documentation
 ================
@@ -66,9 +66,13 @@ Callbacks
 ----------------------
 Methods on the API take a parameter which is a callback function. The callback function will eventually be called when the response to the request is available, or an unrecoverable error occurs.
 
+Local Ids
+----------------------
+The API methods that process images accept a parameter *localId* which a list of ids you use to identify the specific images you submit to the API. If you supply this parameter, the API returns your local_id in the results for each image. You can pass null if you don't need a unique id associated with each image.
+
 Error Handling
 ----------------------
-It is possible for requests to encounter errors that the API cannot recover from and must surface to your program. The asynchronous nature of the interface complicates the way that your program can understand the error. So, the callback routines take two parameters. The first is a result object containing the results of the API method invocation. The second is your localId parameter. So in the case of an error you'll get your meaningful ids back just as in the case of sucessful completion.
+It is possible for requests to encounter errors that the API cannot recover from and must surface to your program. The asynchronous nature of the interface complicates the way that your program can understand the error. To help with this situation, when you receive an error result the API populates a results dictionary with an entry for each image passed to the API method. Each dictionary entry has the members "status_code" and "local_id". Examining the results object should allow you to determine which images caused an error.
 
 Queuing Requests
 ----------------------

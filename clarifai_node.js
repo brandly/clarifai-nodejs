@@ -22,7 +22,7 @@ var feedbackPath = "/v1/feedback";
 // handle the common responses to HTTP status codes
 // 200 and 401 Unauthorized are passed to the httpSuccessHandler
 // 429 throttles the client
-Clarifai.prototype._commonHttpStatusHandler = function(  res, responseData, httpSuccessHandler, successHandler, retry ) {
+Clarifai.prototype._commonHttpStatusHandler = function(  res, responseData, localId, httpSuccessHandler, successHandler, retry ) {
 
 	if( this._bLogHttp ) console.log( responseData );
 
@@ -38,14 +38,18 @@ Clarifai.prototype._commonHttpStatusHandler = function(  res, responseData, http
 			if(this._bVerbose) console.log('Server throttled. Wait time: '+waitSeconds+' seconds.');
 			if( ! this._throttled ) {
 				this._throttled = true;
-				if( typeof( this._handleThrottleChanges ) == "function" ) this._handleThrottleChanges( true );
-				setTimeout( function() { 
-					this._throttled = false;
-					if(typeof( this._handleThrottleChanges ) == "function" ) this._handleThrottleChanges( false ); }.bind(this), 
-					1000*Number(waitSeconds) );
-					if( this._throttled ) successHandler( { 'status_code': 'ERROR_THROTTLED',
-											   'status_msg': 'Request refused. Service is throttled.'}, null );
+				if( typeof( this._handleThrottleChanges ) == "function" ) {
+					this._handleThrottleChanges( true, waitSeconds );	
+					// only set a timeout handler to call the throttle change handler if
+					// there is one registered. No reason waiting on the timeout otherwise.
+					setTimeout( function() { 
+						this._throttled = false;
+						if(typeof( this._handleThrottleChanges ) == "function" ) this._handleThrottleChanges( false, 0 ); }.bind(this), 
+						1000*Number(waitSeconds) );
+				} 
+				
 			}
+			successHandler( JSON.parse( responseData ) );
 
 			break;
 		default:
@@ -104,6 +108,7 @@ Clarifai.prototype._requestAccessToken  = function( errorHandler, retry ) {
 			self._commonHttpStatusHandler( 
 				res, 
 				responseData, 
+				null, // no local ids for this request 
 				function( requestTokenResponse, successHandler, retry ) {
 					this._tokenRequestInFlight = false;
 					parsedResponse = JSON.parse(requestTokenResponse);
@@ -142,7 +147,6 @@ Clarifai.prototype._tagURL  = function( url, localId, successHandler, retry ) {
 
 	// handle both a single url string and a list of url strings
 	if( typeof url == "string" ) url = [ url ];
-	// var formData = "url="+url;
 	var form = new Array();
 	form["url"] = url;
 	if( localId != null ) form["local_id"] = localId;
@@ -164,7 +168,7 @@ Clarifai.prototype._tagURL  = function( url, localId, successHandler, retry ) {
 		res.on("error",console.error);
 		res.on("data",function(chunk) { responseData += chunk; } );
 		res.on("end",function() { 
-			self._commonHttpStatusHandler( res, responseData, self._commonApiStatusHandler.bind(self), successHandler, retry );
+			self._commonHttpStatusHandler( res, responseData, localId, self._commonApiStatusHandler.bind(self), successHandler, retry );
 			});
 	}).on("error",console.log);
 
@@ -206,7 +210,7 @@ Clarifai.prototype._feedbackTagsDocids = function( docids, tags, localId, bAdd, 
 		res.on("error",console.error);
 		res.on("data",function(chunk) { responseData += chunk; } );
 		res.on("end",function() { 
-			self._commonHttpStatusHandler( res, responseData, self._commonApiStatusHandler.bind(self), successHandler, retry );
+			self._commonHttpStatusHandler( res, responseData, localId, self._commonApiStatusHandler.bind(self), successHandler, retry );
 			});
 	}).on("error",console.log);
 
