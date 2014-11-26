@@ -70,6 +70,14 @@ Local Ids
 ----------------------
 The API methods that process images accept a parameter *localId* which a list of ids you use to identify the specific images you submit to the API. If you supply this parameter, the API returns your local_id in the results for each image. You can pass null if you don't need a unique id associated with each image.
 
+Non-default Models
+----------------------
+By default, the API classifies images and accepts feedback against the default Clarifai model. In some circumstances, you may be given access to an alternate model. To use a non-default model, call *setModel* with the name of your model. 
+
+```javascript
+Clarifai.setModel( "your-model-name" )
+```
+
 Error Handling
 ----------------------
 It is possible for requests to encounter errors that the API cannot recover from and must surface to your program. The asynchronous nature of the interface complicates the way that your program can understand the error. To help with this situation, when you receive an error result the API populates a results dictionary with an entry for each image passed to the API method. Each dictionary entry has the members "status_code" and "local_id". Examining the results object should allow you to determine which images caused an error.

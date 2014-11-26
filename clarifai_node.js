@@ -67,7 +67,7 @@ Clarifai.prototype._commonApiStatusHandler = function( responseData, successHand
 			successHandler( res );
 			break;
 		case "TOKEN_INVALID":
-			if(this._bVerbose) console.log("Invalid Token. Requesting new Access Token.");
+			if(this._bVerbose) console.log("Server refused request due to invalid Access Token");
 			this._requestAccessToken( successHandler, retry );
 			break;
 		default:
@@ -79,10 +79,11 @@ Clarifai.prototype._commonApiStatusHandler = function( responseData, successHand
 Clarifai.prototype._requestAccessToken  = function( errorHandler, retry ) {
 	this._retryQueue.push( retry );
 	if (this._tokenRequestInFlight) {
-		if(this._bVerbose) console.log( "access token request already in flight. queuing request for completion with fresh token.");
+		if(this._bVerbose) console.log( "Access Token request already in flight. Queuing request for completion with fresh token.");
 		return;
 	}
 	this._tokenRequestInFlight = true;
+	if(this._bVerbose) console.log( "Requesting new Access Token. Queuing request for completion with fresh token.");
 	var responseData = '';
 	var form = new Array();
 	form["grant_type"]="client_credentials";
@@ -150,6 +151,7 @@ Clarifai.prototype._tagURL  = function( url, localId, successHandler, retry ) {
 	var form = new Array();
 	form["url"] = url;
 	if( localId != null ) form["local_id"] = localId;
+	if( this._model != null ) form["model"] = this._model;
 	var formData = querystring.stringify( form );
 
 	this.POSTheaders["Content-Length"] = formData.length;
@@ -192,6 +194,7 @@ Clarifai.prototype._feedbackTagsDocids = function( docids, tags, localId, bAdd, 
 	var form = new Array();
 	form["docids"] = docids;
 	if( localId != null ) form["local_id"] = localId;
+	if( this._model != null ) form["model"] = this._model;
 	form[bAdd ? "add_tags" : "remove_tags"] = tags;
 	var formData = querystring.stringify( form );
 
@@ -243,6 +246,10 @@ Clarifai.prototype.setPort = function( newPort ) {
 	this._apiPort = newPort;
 }
 
+Clarifai.prototype.setModel = function( newModel ) {
+	this._model = newModel;
+}
+
 Clarifai.prototype.setLogHttp = function( bLog ) {
 	this._bLogHttp = bLog;
 }
@@ -261,6 +268,7 @@ function Clarifai( ) {
 	this._clientSecret = "";
 	this._apiHost = "api.clarifai.com";
 	this._apiPort = "443";
+	this._model = null;
 	this._accessToken = "uninitialized";
 
 	this._tokenRequestInFlight = false;
