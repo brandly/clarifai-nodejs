@@ -181,7 +181,11 @@ Clarifai.prototype._tagURL  = function( url, localId, successHandler, retry ) {
 
 Clarifai.prototype.tagURL = function( url, localId, callback ) {
 
-	this._tagURL( url, localId, callback, function() { this.tagURL( url, localId, callback ); }.bind(this) );
+  this._tagURL( url, localId,
+    function(data) { callback(null, data); },
+    function() {
+      this.tagURL( url, localId, callback );
+    }.bind(this) );
 
 }
 
