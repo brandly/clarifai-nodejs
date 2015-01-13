@@ -31,12 +31,13 @@ if(verbose) console.log("using CLIENT_ID="+Clarifai._clientId+", CLIENT_SECRET="
 function exampleTagSingleURL() {var testImageURL = 'http://www.clarifai.com/img/metro-north.jpg';
 	var ourId = "train station 1"; // this is any string that identifies the image to your system
 
-	Clarifai.tagURL( testImageURL , ourId, function( res ) {
+	Clarifai.tagURL( testImageURL , ourId, function( err, res ) {
 		if( opts["print-results"] ) {
 			switch( res["status_code"]) {
 				case "OK" :
 					// the request completed successfully
 					console.log( res, 'local_id =', res.results[0].local_id );
+                                        console.log( res["results"][0].result["tag"]["classes"] );
 					break;
 				case "ALL_ERROR":
 					// this is the error return from the first
@@ -52,6 +53,7 @@ function exampleTagSingleURL() {var testImageURL = 'http://www.clarifai.com/img/
 	} );
 }
 
+
 // exampleTagMultipleURL() shows how to request the tags for multiple images URLs
 function exampleTagMultipleURL() {
 	var testImageURLs = [ 
@@ -60,7 +62,7 @@ function exampleTagMultipleURL() {
 	var ourIds =  [ "train station 1", 
 	                        "img002032" ]; // this is any string that identifies the image to your system
 
-	Clarifai.tagURL( testImageURLs , ourIds, function( res ) {
+	Clarifai.tagURL( testImageURLs , ourIds, function( err, res ) {
 		if( opts["print-results"] ) {
 			console.log( res  );
 			switch( res["status_code"]) {
@@ -98,7 +100,7 @@ var docids = [
 	"addTag1",
 	"addTag2"
 	];
-	Clarifai.feedbackAddTagsToDocids( docids, addTags, null, function( res ) {
+	Clarifai.feedbackAddTagsToDocids( docids, addTags, null, function( err, res ) {
 		if( opts["print-results"] ) {
 			console.log( res );
 		};
@@ -119,3 +121,4 @@ var docids = [
 exampleTagSingleURL();
 exampleTagMultipleURL();
 exampleFeedback();
+
