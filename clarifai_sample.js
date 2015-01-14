@@ -3,6 +3,7 @@
 var Clarifai = require('./clarifai_node.js');
 Clarifai.initAPI(process.env.CLIENT_ID, process.env.CLIENT_SECRET);
 
+
 var stdio = require('stdio');
 
 // support some command-line options
@@ -23,34 +24,49 @@ if(verbose) console.log("using CLIENT_ID="+Clarifai._clientId+", CLIENT_SECRET="
 // you know when the service is available again. Note that setting the throttle handler causes a timeout handler to
 // be set that will prevent your process from existing normally until the timeout expires. If you want to exit fast
 // on being throttled, don't set a handler and look for error results instead.
-// Clarifai.setThrottleHandler( function( bThrottled, waitSeconds ) { 
-// 	console.log( bThrottled ? ["throttled. service available again in",waitSeconds,"seconds"].join(' ') : "not throttled");
-// });
+
+Clarifai.setThrottleHandler( function( bThrottled, waitSeconds ) { 
+	console.log( bThrottled ? ["throttled. service available again in",waitSeconds,"seconds"].join(' ') : "not throttled");
+});
+
+function commonResultHandler( err, res ) {
+	if( err != null ) {
+		if( typeof err["status_code"] === "string" && err["status_code"] === "TIMEOUT") {
+			console.log("TAG request timed out");
+		}
+		else if( typeof err["status_code"] === "string" && err["status_code"] === "ALL_ERROR") {
+			console.log("TAG request received ALL_ERROR. Contact Clarifai support if it continues.");				
+		}
+		else if( typeof err["status_code"] === "string" && err["status_code"] === "TOKEN_FAILURE") {
+			console.log("TAG request received TOKEN_FAILURE. Contact Clarifai support if it continues.");				
+		}
+		else if( typeof err["status_code"] === "string" && err["status_code"] === "ERROR_THROTTLED") {
+			console.log("Clarifai host is throttling this application.");				
+		}
+		else {
+			console.log("TAG request encountered an unexpected error: ");
+			console.log(err);				
+		}
+	}
+	else {
+		if( opts["print-results"] ) {
+			if( typeof res["status_code"] === "string" && res["status_code"] === "OK") {
+				// the request completed successfully
+				console.log( res, 'local_id =', res.results[0].local_id );
+				console.log( res["results"][0].result["tag"]["classes"] );
+			}
+		}			
+	}
+}
 
 // exampleTagSingleURL() shows how to request the tags for a single image URL
 function exampleTagSingleURL() {var testImageURL = 'http://www.clarifai.com/img/metro-north.jpg';
 	var ourId = "train station 1"; // this is any string that identifies the image to your system
 
-	Clarifai.tagURL( testImageURL , ourId, function( err, res ) {
-		if( opts["print-results"] ) {
-			switch( res["status_code"]) {
-				case "OK" :
-					// the request completed successfully
-					console.log( res, 'local_id =', res.results[0].local_id );
-                                        console.log( res["results"][0].result["tag"]["classes"] );
-					break;
-				case "ALL_ERROR":
-					// this is the error return from the first
-					// request that triggered the service to throttle	
-					break;
-				case "ERROR_THROTTLED":
-					// this is the error returned from the API client
-					// you make a request when the state is already
-					// throttled
-					break;
-			}
-		};
-	} );
+	// Clarifai.setRequestTimeout( 100 ); // in ms - expect: force a timeout response
+	// Clarifai.setRequestTimeout( 100 ); // in ms - expect: ensure no timeout 
+
+	Clarifai.tagURL( testImageURL , ourId, commonResultHandler );
 }
 
 
@@ -110,7 +126,7 @@ var docids = [
 	"removeTag1",
 	"removeTag2"
 	];
-	Clarifai.feedbackRemoveTagsFromDocids( docids, removeTags, null, function( res ) {
+	Clarifai.feedbackRemoveTagsFromDocids( docids, removeTags, null, function( err, res ) {
 		if( opts["print-results"] ) {
 			console.log( res );
 		};
@@ -121,4 +137,6 @@ var docids = [
 exampleTagSingleURL();
 exampleTagMultipleURL();
 exampleFeedback();
+
+Clarifai.clearThrottleHandler();
 
