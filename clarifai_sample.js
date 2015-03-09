@@ -50,10 +50,29 @@ function commonResultHandler( err, res ) {
 	}
 	else {
 		if( opts["print-results"] ) {
-			if( typeof res["status_code"] === "string" && res["status_code"] === "OK") {
+			// if some images were successfully tagged and some encountered errors,
+			// the status_code PARTIAL_ERROR is returned. In this case, we inspect the
+			// status_code entry in each element of res["results"] to evaluate the individual
+			// successes and errors. if res["status_code"] === "OK" then all images were 
+			// successfully tagged.
+			if( typeof res["status_code"] === "string" && 
+				( res["status_code"] === "OK" || res["status_code"] === "PARTIAL_ERROR" )) {
+
 				// the request completed successfully
-				console.log( res, 'local_id =', res.results[0].local_id );
-				console.log( res["results"][0].result["tag"]["classes"] );
+				for( i = 0; i < res.results.length; i++ ) {
+					if( res["results"][i]["status_code"] === "OK" ) {
+						console.log( 'docid='+res.results[i].docid +
+							' local_id='+res.results[i].local_id +
+							' tags='+res["results"][i].result["tag"]["classes"] )
+					}
+					else {
+						console.log( 'docid='+res.results[i].docid +
+							' local_id='+res.results[i].local_id + 
+							' status_code='+res.results[i].status_code +
+							' error = '+res.results[i]["result"]["error"] )
+					}
+				}
+
 			}
 		}			
 	}
@@ -79,28 +98,7 @@ function exampleTagMultipleURL() {
 	var ourIds =  [ "train station 1", 
 	                "train station 2" ]; // this is any string that identifies the image to your system
 
-	Clarifai.tagURL( testImageURLs , ourIds, function( err, res ) {
-		if( opts["print-results"] ) {
-			console.log( res  );
-			switch( res["status_code"]) {
-				case "OK" :
-					// the request completed successfully
-					for( i = 0; i < res.results.length; i++ ) {
-						console.log( 'docid='+res.results[i].docid+' local_id='+res.results[i].local_id )
-					}
-					break;
-				case "ALL_ERROR":
-					// this is the error return from the first
-					// request that triggered the service to throttle	
-					break;
-				case "ERROR_THROTTLED":
-					// this is the error returned from the API client
-					// you make a request when the state is already
-					// throttled
-					break;
-			}
-		};
-	} );
+	Clarifai.tagURL( testImageURLs , ourIds, commonResultHandler ); 
 }
 
 // exampleFeedback() shows how to send feedback (add or remove tags) from 
