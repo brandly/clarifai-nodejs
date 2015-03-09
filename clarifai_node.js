@@ -90,6 +90,11 @@ Clarifai.prototype._commonHttpStatusHandler = function(  res, responseData, loca
 
 			break;
 
+		case 400: // ALL_ERROR - All images in the request had errors 
+
+			resultHandler( JSON.parse( responseData ), null );
+			break;
+
 		case 500: // Internal Server Error
 
 			// the API Host uses this for catastrophic failures e.g. no vision backends are available
@@ -101,6 +106,7 @@ Clarifai.prototype._commonHttpStatusHandler = function(  res, responseData, loca
 				console.log( "unexpected http status code "+http_status);
 				console.log( responseData );
 			}
+			resultHandler( JSON.parse( responseData ), null );
 			break;
 	}
 }
