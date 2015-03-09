@@ -60,7 +60,8 @@ function commonResultHandler( err, res ) {
 }
 
 // exampleTagSingleURL() shows how to request the tags for a single image URL
-function exampleTagSingleURL() {var testImageURL = 'http://www.clarifai.com/img/metro-north.jpg';
+function exampleTagSingleURL() {
+	var testImageURL = 'http://www.clarifai.com/img/metro-north.jpg';
 	var ourId = "train station 1"; // this is any string that identifies the image to your system
 
 	// Clarifai.setRequestTimeout( 100 ); // in ms - expect: force a timeout response
@@ -74,9 +75,9 @@ function exampleTagSingleURL() {var testImageURL = 'http://www.clarifai.com/img/
 function exampleTagMultipleURL() {
 	var testImageURLs = [ 
 	"http://www.clarifai.com/img/metro-north.jpg", 
-	"http://www.clarifai.com/img/img_fire_bg.jpg" ] ;
+	"http://www.clarifai.com/img/metro-north.jpg" ];
 	var ourIds =  [ "train station 1", 
-	                        "img002032" ]; // this is any string that identifies the image to your system
+	                "train station 2" ]; // this is any string that identifies the image to your system
 
 	Clarifai.tagURL( testImageURLs , ourIds, function( err, res ) {
 		if( opts["print-results"] ) {

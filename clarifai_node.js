@@ -20,9 +20,15 @@ var requestTokenPath = "/v1/token";
 var feedbackPath = "/v1/feedback";
 
 
-// handle the common responses to HTTP status codes
-// 200 and 401 Unauthorized are passed to the httpSuccessHandler
-// 429 throttles the client
+/* handle the common responses to HTTP status codes
+ * 200 and 401 Unauthorized are passed to the httpSuccessHandler
+ * 429 throttles the client
+ * @param res the HttpResponse object
+ * @param responseData the data body of the response
+ * @param localId the local id provided by the client with the request that generated this response
+ * @param resultHandler the method that will be called if this client isn't going to handle it (e.g. invalid tokens or throttled responses)
+ * @param retry a closure that will be queued for retry in case we are throttled and are queueing
+ */ 
 Clarifai.prototype._commonHttpStatusHandler = function(  res, responseData, localId, resultHandler, retry ) {
 
 	if( this._bLogHttp ) console.log( "HTTP response statusCode: "+res.statusCode);
@@ -33,11 +39,10 @@ Clarifai.prototype._commonHttpStatusHandler = function(  res, responseData, loca
 		case 200: // returned by tag method
 		case 201: // returned by feedback methods
 
-			// httpSuccessHandler( responseData, successHandler, retry );
-
 			res = JSON.parse(responseData);
 			switch( res["status_code"] ) {
 				case "OK":
+				case "PARTIAL_ERROR": // return as *success* because there is *some* success
 					if( this._bLogResults ) console.log( res );
 					resultHandler( null, res );
 					break;
