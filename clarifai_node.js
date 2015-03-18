@@ -14,6 +14,7 @@
 var querystring = require('querystring');
 var https = require('https');
 var http = require('http');
+var fs = require('fs');
 
 var tagPath = "/v1/tag/";
 var requestTokenPath = "/v1/token";
@@ -218,6 +219,7 @@ Clarifai.prototype._requestAccessToken  = function(  retry , resultHandler ) {
 		res.on("data",function(chunk) { responseData += chunk; } );
 		res.on("end", function() { self._tokenResponseHandler(res, responseData); } );
 	}).on("error",function( err ) { 
+		console.log( "FATAL ERROR: request for new access token encountered error: " + err );
 		if( self._tokenRetries >= self._tokenMaxRetries ) {
 			// despool queued [ retry, resultHandler ] and call handlers with fatal error
 			this._tokenRequestInFlight = false;
@@ -332,6 +334,15 @@ Clarifai.prototype._tagURL  = function( url, localId, resultHandler, retry ) {
 
 Clarifai.prototype.tagURL = function( url, localId, callback ) {
 
+  if (typeof callback === "undefined") {
+    console.log( "ERROR: parameter callback is undefined - you must provide a callback handler(err,result)" );
+    return;
+  }
+  if (typeof callback !== "function") {
+    console.log( "ERROR: parameter callback is not a function - you must provide a callback handler(err,result)" );
+    return;
+  }
+
   retry = function() {
       this.tagURL( url, localId, callback );
   }.bind(this);
@@ -339,6 +350,44 @@ Clarifai.prototype.tagURL = function( url, localId, callback ) {
   this._tagURL( url, localId,
     callback,	
     retry );
+
+}
+
+Clarifai.prototype._tagFile  = function( filedata, localId, resultHandler, retry ) {
+	if( this._throttled ) 
+		// the host has throttled us, so there's no point in sending the request
+		// just immediately return the throttled status
+		resultHandler( { 'status_code': 'ERROR_THROTTLED',
+				    'status_msg': 'Request refused. Service is throttled.'} , null );
+
+	var form = new Array();
+	form['encoded_image'] = filedata.toString('base64');
+
+	this._httpRequest( tagPath, form, localId, resultHandler, retry );
+
+}
+
+// note: this method is experimential and not supported yet. if you try it, let us know!
+Clarifai.prototype.tagFile = function( filename, localId, callback ) {
+
+  if (typeof callback === "undefined") {
+    console.log( "ERROR: parameter callback is undefined - you must provide a callback handler(err,result)" );
+    return;
+  }
+  if (typeof callback !== "function") {
+    console.log( "ERROR: parameter callback is not a function - you must provide a callback handler(err,result)" );
+    return;
+  }
+
+  retry = function() {
+      this.tagFile( filename, localId, callback );
+  }.bind(this);
+
+  self = this;
+  fs.readFile( filename, function( err, data ) {
+  	if (err) throw err;
+  	self._tagFile( data, localId, callback, retry );
+  });
 
 }
 
