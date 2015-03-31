@@ -4,6 +4,7 @@ var Clarifai = require('./clarifai_node.js');
 Clarifai.initAPI(process.env.CLIENT_ID, process.env.CLIENT_SECRET);
 
 
+var async = require('async');
 var stdio = require('stdio');
 
 // support some command-line options
@@ -29,6 +30,7 @@ Clarifai.setThrottleHandler( function( bThrottled, waitSeconds ) {
 	console.log( bThrottled ? ["throttled. service available again in",waitSeconds,"seconds"].join(' ') : "not throttled");
 });
 
+
 function commonResultHandler( err, res ) {
 	if( err != null ) {
 		if( typeof err["status_code"] === "string" && err["status_code"] === "TIMEOUT") {
@@ -36,6 +38,19 @@ function commonResultHandler( err, res ) {
 		}
 		else if( typeof err["status_code"] === "string" && err["status_code"] === "ALL_ERROR") {
 			console.log("TAG request received ALL_ERROR. Contact Clarifai support if it continues.");				
+		}
+		else if( typeof err["status_code"] === "string" && err["status_code"] === "TOKEN_EXPIRED") {
+			console.log("TAG request received TOKEN_EXPIRED.");
+			Clarifai.requestAccessToken( function( err, res ) {
+				if( opts["print-results"] ) {
+					console.log( res );
+				};
+				if( res != null ) {
+					Clarifai.setAccessToken( res['access_token'] );
+				}
+			});
+			// note that in the interval between now and when a valid token is received, any requests
+			// on the API will return TOKEN_EXPIRED
 		}
 		else if( typeof err["status_code"] === "string" && err["status_code"] === "TOKEN_FAILURE") {
 			console.log("TAG request received TOKEN_FAILURE. Contact Clarifai support if it continues.");				
@@ -78,64 +93,88 @@ function commonResultHandler( err, res ) {
 	}
 }
 
-// exampleTagSingleURL() shows how to request the tags for a single image URL
-function exampleTagSingleURL() {
-	var testImageURL = 'http://www.clarifai.com/img/metro-north.jpg';
-	var ourId = "train station 1"; // this is any string that identifies the image to your system
 
-	// Clarifai.setRequestTimeout( 100 ); // in ms - expect: force a timeout response
-	// Clarifai.setRequestTimeout( 100 ); // in ms - expect: ensure no timeout 
+// by default, access token management is manual, meaning that you need to make
+// explicit access token requests whenever you need a new token. for example, if
+// you are not caching your token between executions, you will need a new token
+// when you start up.
 
-	Clarifai.tagURL( testImageURL , ourId, commonResultHandler );
-}
+// this sample starts with no token, so we want to wait while we get one before
+// we send our first tag request
 
 
-// exampleTagMultipleURL() shows how to request the tags for multiple images URLs
-function exampleTagMultipleURL() {
-	var testImageURLs = [ 
-	"http://www.clarifai.com/img/metro-north.jpg", 
-	"http://www.clarifai.com/img/metro-north.jpg" ];
-	var ourIds =  [ "train station 1", 
-	                "train station 2" ]; // this is any string that identifies the image to your system
+async.series( [ 
+	function(callback) {
+		Clarifai.requestAccessToken( function( err, res ) {
+			if( opts["print-results"] ) {
+				console.log( res );
+			};
+			if( res != null ) {
+				// assuming you got a response (no error), then set the new token
+				// on the API instance
+				Clarifai.setAccessToken( res['access_token'] );
+			}
+			callback(err,res);
+		});
+	},
+	function(callback) {
 
-	Clarifai.tagURL( testImageURLs , ourIds, commonResultHandler ); 
-}
+		var testImageURL = 'http://www.clarifai.com/img/metro-north.jpg';
+		var ourId = "train station 1"; // this is any string that identifies the image to your system
 
-// exampleFeedback() shows how to send feedback (add or remove tags) from 
-// a list of docids. Recall that the docid uniquely identifies an image previously
-// presented for tagging to one of the tag methods.
-function exampleFeedback() {
-// these are docids that just happen to be in the database right now. this test should get 
-// upgraded to tag images and use the returned docids.
-var docids = [
-	"15512461224882630000",
-	"9549283504682293000"
-	];
-	var addTags = [
-	"addTag1",
-	"addTag2"
-	];
-	Clarifai.feedbackAddTagsToDocids( docids, addTags, null, function( err, res ) {
-		if( opts["print-results"] ) {
-			console.log( res );
-		};
-	} );
+		Clarifai.tagURL( testImageURL , ourId, function( err, res ) {
+			commonResultHandler(err,res);
+			callback(err,res);
+		} );
 
-	var removeTags = [
-	"removeTag1",
-	"removeTag2"
-	];
-	Clarifai.feedbackRemoveTagsFromDocids( docids, removeTags, null, function( err, res ) {
-		if( opts["print-results"] ) {
-			console.log( res );
-		};
-	} );
-}
+	},
+	function(callback) {
 
+		var testImageFile = 'testimages/img0001.jpg';
+		var ourId = 'our sample image';
+		
+		Clarifai.tagFile( testImageFile, ourId,  function( err, res ) {
+			commonResultHandler(err,res);
+			callback(err,res);
+		} );
 
-exampleTagSingleURL();
-exampleTagMultipleURL();
-exampleFeedback();
+	},
+	function(callback) {
+		var testImageURLs = [ 
+								"http://www.clarifai.com/img/metro-north.jpg", 
+								"http://www.clarifai.com/img/metro-north.jpg"
+							];
+		var ourIds =  [ "train station 1", 
+		                "train station 2" ]; // this is any string that identifies the image to your system
+		
+		Clarifai.tagURL( testImageURLs, ourIds, function( err, res ) {
+			commonResultHandler(err,res);
+			callback(err,res);
+		} );
+
+	},
+	function(callback) {
+		var docids = [
+			"15512461224882630000",
+			"9549283504682293000"
+			];
+		var addTags = [
+			"addTag1",
+			"addTag2"
+			];
+
+		Clarifai.feedbackAddTagsToDocids( docids, addTags, null, function( err, res ) {
+			if( opts["print-results"] ) {
+				console.log( res );
+			};
+			callback(err,res);
+		} );
+	}
+	],
+	function( err, res ) {
+	}
+
+);
 
 Clarifai.clearThrottleHandler();
 

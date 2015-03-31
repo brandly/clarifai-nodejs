@@ -60,6 +60,16 @@ Clarifai.prototype._commonHttpStatusHandler = function(  res, responseData, loca
 			// need to distinguish
 
 			res = JSON.parse(responseData);
+
+			if( typeof res["status_code"] === "string" && res["status_code"] === "TOKEN_EXPIRED") {
+				this._accessToken = "expired";
+			}
+
+			if( ! this._autoTokenMgmt ) {
+				resultHandler( JSON.parse( responseData), null ); 
+				return;
+			}
+
 			if( typeof res["status_code"] === "string" && res["status_code"] === "TOKEN_INVALID") {
 				if(this._bVerbose) console.log("Server refused request due to invalid Access Token");
 				this._requestAccessToken( retry, resultHandler );
@@ -217,9 +227,18 @@ Clarifai.prototype._requestAccessToken  = function(  retry , resultHandler ) {
 		res.setEncoding('utf8');
 		res.on("error",console.error);
 		res.on("data",function(chunk) { responseData += chunk; } );
-		res.on("end", function() { self._tokenResponseHandler(res, responseData); } );
+		res.on("end", function() { 
+			if( self._autoTokenMgmt )
+				self._tokenResponseHandler(res, responseData); 
+			else
+				resultHandler( null, JSON.parse(responseData) );
+		} );
 	}).on("error",function( err ) { 
 		console.log( "FATAL ERROR: request for new access token encountered error: " + err );
+		if( ! self._autoTokenMgmt ) {
+			rh( {"status_code": "TOKEN_FAILURE", "status_msg": "Token request failed. Check your HTTP log for details." }, null );
+			return;
+		}
 		if( self._tokenRetries >= self._tokenMaxRetries ) {
 			// despool queued [ retry, resultHandler ] and call handlers with fatal error
 			this._tokenRequestInFlight = false;
@@ -257,6 +276,12 @@ Clarifai.prototype._requestAccessToken  = function(  retry , resultHandler ) {
 
 Clarifai.prototype._httpRequest = function( endpoint, form, localId, resultHandler, retry  )
 {
+	if( this._throttled ) 
+		// the host has throttled us, so there's no point in sending the request
+		// just immediately return the throttled status
+		resultHandler( { 'status_code': 'ERROR_THROTTLED',
+				    'status_msg': 'Request not sent. Service is throttled.'} , null );
+
 	var responseData = '';
 
 	if( localId != null ) form["local_id"] = localId;
@@ -307,6 +332,25 @@ Clarifai.prototype._httpRequest = function( endpoint, form, localId, resultHandl
 	req.end();
 }
 
+// use the client_id and client_secret set on the Clarifai instance
+Clarifai.prototype.requestAccessToken = function( resultHandler ) {
+
+  if (typeof resultHandler === "undefined") {
+    console.log( "ERROR: parameter resultHandler is undefined - you must provide a callback handler(err,result)" );
+    err =  {"status_code": "BAD PARAMETER", "status_msg": "parameter resultHandler is undefined" };
+    resultHandler( err, null );
+    return;
+  }
+  if (typeof resultHandler !== "function") {
+    console.log( "ERROR: parameter resultHandler is not a function - you must provide a callback handler(err,result)" );
+    err =  {"status_code": "BAD PARAMETER", "status_msg": "parameter resultHandler is not a function" };
+    resultHandler( err, null );
+    return;
+  }
+
+  this._requestAccessToken( null, resultHandler );
+}
+
 // internal method to invoke TAG API endpoint.
 // url is a reference to an image accessible from the API host
 // localId is the client id for the image referenced by url
@@ -315,13 +359,6 @@ Clarifai.prototype._httpRequest = function( endpoint, form, localId, resultHandl
 // when/if we temporarily queue requests when the access token is invalid and
 // a new one is being requested
 Clarifai.prototype._tagURL  = function( url, localId, resultHandler, retry ) {
-	if( this._throttled ) 
-		// the host has throttled us, so there's no point in sending the request
-		// just immediately return the throttled status
-		resultHandler( { 'status_code': 'ERROR_THROTTLED',
-				    'status_msg': 'Request refused. Service is throttled.'} , null );
-
-	// var responseData = '';
 
 	// handle both a single url string and a list of url strings
 	if( typeof url == "string" ) url = [ url ];
@@ -396,13 +433,6 @@ Clarifai.prototype.tagFile = function( filename, localId, callback ) {
 // boolean bAdd.
 Clarifai.prototype._feedbackTagsDocids = function( docids, tags, localId, bAdd, resultHandler, retry ) {
 
-	if( this._throttled ) 
-		// the host has throttled us, so there's no point in sending the request
-		// just immediately return the throttled status
-		resultHandler( { 'status_code': 'ERROR_THROTTLED',
-				    'status_msg': 'Request refused. Service is throttled.'} , null );
-
-
 	var responseData = '';
 	var form = new Array();
 	form["docids"] = docids;
@@ -452,6 +482,18 @@ Clarifai.prototype.setModel = function( newModel ) {
 	this._model = newModel;
 }
 
+Clarifai.prototype.setAutoTokenMgmt = function( bAuto ) {
+	this._autoTokenMgmt = bAuto;
+}
+
+Clarifai.prototype.setAccessToken = function( newToken ) {
+	this._accessToken = newToken;
+}
+
+Clarifai.prototype.getAccessToken = function( ) {
+	return this._accessToken;
+}
+
 Clarifai.prototype.setLogHttp = function( bLog ) {
 	this._bLogHttp = bLog;
 }
@@ -474,6 +516,7 @@ function Clarifai( ) {
 	this._model = null;
 	this._accessToken = "uninitialized";
 
+	this._autoTokenMgmt = false;
 	this._tokenRetries = 0;
 	this._tokenMaxRetries = 2;
 	this._requestTimeout_ms = 3*1000;
